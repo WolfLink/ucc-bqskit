@@ -6,13 +6,14 @@ from pytket import Circuit as TketCircuit
 from qiskit import QuantumCircuit as QiskitCircuit
 from qiskit.converters import circuit_to_dag
 from qiskit.quantum_info import Statevector
-from qiskit.transpiler.passes import GatesInBasis
+from qiskit.transpiler.passes import GatesInBasis, CountOps
 from qiskit.transpiler.passes.utils import CheckMap
 from qiskit.transpiler.basepasses import TransformationPass
 from qiskit.circuit.library import HGate, XGate
 from ucc.tests.mock_backends import Mybackend
 from ucc import compile
 from ucc.transpilers.ucc_defaults import UCCDefault1
+from ucc.transpilers.ucc_bqskit import BQSKitTransformationPass
 import numpy as np
 
 
@@ -88,10 +89,11 @@ def test_tket_compile():
     assert isinstance(result_circuit, TketCircuit)
 
 
-def test_custom_pass():
+@pytest.mark.parametrize("custom_pass", [None, BQSKitTransformationPass()])
+def test_custom_pass(custom_pass):
     """Verify that a custom pass works with a non-qiskit input circuit"""
 
-    class HtoX(TransformationPass):
+    class HtoX(TransformationPass=None):
         """Toy transformation that converts all H gates to X gates"""
 
         def run(self, dag):
@@ -99,13 +101,15 @@ def test_custom_pass():
                 if isinstance(node.op, HGate):
                     dag.substitute_node(node, XGate())
             return dag
+    if custom_pass is None:
+        custom_pass = HtoX()
 
     # Example usage with a cirq circuit, stil showcasing the cross-frontend compatibility
 
     qubit = NamedQubit("q_0")
     cirq_circuit = CirqCircuit(H(qubit))
 
-    post_compiler_circuit = compile(cirq_circuit, custom_passes=[HtoX()])
+    post_compiler_circuit = compile(cirq_circuit, custom_passes=[custom_pass])
     assert_same_circuits(post_compiler_circuit, CirqCircuit(X(qubit)))
 
     def test_compile_target_device_opset():
@@ -141,6 +145,49 @@ def test_custom_pass():
         dag = circuit_to_dag(result_circuit)
         analysis_pass.run(dag)
         assert analysis_pass.property_set["check_map"]
+
+def test_bqskit_compile():
+    from ucc.transpilers.ucc_bqskit import BQSKitTransformationPass
+    bqskit_pass = BQSKitTransformationPass()
+    qasm = """
+        OPENQASM 2.0;
+        include "qelib1.inc";
+        qreg q[3];
+        h q[0];
+        cp(1.5707963267948966) q[1], q[0];
+        h q[1];
+        cp(0.7853981633974483) q[2], q[0];
+        cp(1.5707963267948966) q[2], q[1];
+        h q[2];
+        swap q[0], q[2];
+        h q[0];
+        cp(-1.5707963267948966) q[1], q[0];
+        h q[1];
+        cp(-0.7853981633974483) q[2], q[0];
+        cp(-1.5707963267948966) q[2], q[1];
+        h q[2];
+        swap q[0], q[2];
+        """
+    # This qasm describes a 3-qubit QFT followed by a 3-qubit inverse QFT.
+    # This circuit resolves to the identity, but that's not obvious to
+    # most synthesis tools.
+    # BQSKit using LEAP will usually remove all 2-qubit gates
+    # from the circuit, leaving 3 u3 gates that don't do anything
+    # because it just focuses on the 2-qubit gates. A further
+    # post processing step would remove these 1-qubit gates, but in
+    # more realistic use cases, its often not worth the extra processing.
+
+    def get_post_cx_count(circuit, custom_passes=[]):
+        post_compiler_circuit = compile(qasm, custom_passes=custom_passes)
+        analysis_pass = CountOps()
+        dag = circuit_to_dag(QiskitCircuit.from_qasm_str(post_compiler_circuit))
+        analysis_pass.run(dag)
+        if 'cx' in analysis_pass.property_set['count_ops']:
+            return analysis_pass.property_set['count_ops']['cx']
+        else:
+            return 0
+
+    assert get_post_cx_count(qasm, [bqskit_pass]) < get_post_cx_count(qasm)
 
 
 def test_compile_with_target_gateset():
