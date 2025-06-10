@@ -1,8 +1,5 @@
-from bqskit import Circuit
 from bqskit.compiler import Compiler
-from bqskit.ir.gates import CNOTGate
-from bqskit.ext.qiskit.translate import *
-from bqskit.ir.lang.qasm2.qasm2 import *
+from bqskit.ext.qiskit.translate import bqskit_to_qiskit, qiskit_to_bqskit
 from bqskit.passes import ForEachBlockPass, QuickPartitioner, LEAPSynthesisPass, UnfoldPass
 
 import qiskit.transpiler.basepasses
