@@ -143,9 +143,9 @@ def test_custom_pass():
         assert analysis_pass.property_set["check_map"]
 
 
-
 def test_bqskit_compile():
     from ucc.transpilers.ucc_bqskit import BQSKitTransformationPass
+
     bqskit_pass = BQSKitTransformationPass()
     qasm = """
         OPENQASM 2.0;
@@ -178,10 +178,12 @@ def test_bqskit_compile():
     def get_post_cx_count(circuit, custom_passes=[]):
         post_compiler_circuit = compile(qasm, custom_passes=custom_passes)
         analysis_pass = CountOps()
-        dag = circuit_to_dag(QiskitCircuit.from_qasm_str(post_compiler_circuit))
+        dag = circuit_to_dag(
+            QiskitCircuit.from_qasm_str(post_compiler_circuit)
+        )
         analysis_pass.run(dag)
-        if 'cx' in analysis_pass.property_set['count_ops']:
-            return analysis_pass.property_set['count_ops']['cx']
+        if "cx" in analysis_pass.property_set["count_ops"]:
+            return analysis_pass.property_set["count_ops"]["cx"]
         else:
             return 0
 

@@ -1,11 +1,19 @@
 from bqskit.compiler import Compiler
 from bqskit.ext.qiskit.translate import bqskit_to_qiskit, qiskit_to_bqskit
-from bqskit.passes import ForEachBlockPass, QuickPartitioner, LEAPSynthesisPass, UnfoldPass
+from bqskit.passes import (
+    ForEachBlockPass,
+    QuickPartitioner,
+    LEAPSynthesisPass,
+    UnfoldPass,
+)
 
 import qiskit.transpiler.basepasses
 import qiskit.converters
 
-class BQSKitTransformationPass(qiskit.transpiler.basepasses.TransformationPass):
+
+class BQSKitTransformationPass(
+    qiskit.transpiler.basepasses.TransformationPass
+):
     def __init__(self, bqskit_passes=None):
         super().__init__()
         if bqskit_passes is None:
@@ -15,10 +23,12 @@ class BQSKitTransformationPass(qiskit.transpiler.basepasses.TransformationPass):
 
     def default_passes(self):
         return [
-                QuickPartitioner(3),
-                ForEachBlockPass(LEAPSynthesisPass(), replace_filter='less-than-multi'),
-                UnfoldPass(),
-                ]
+            QuickPartitioner(3),
+            ForEachBlockPass(
+                LEAPSynthesisPass(), replace_filter="less-than-multi"
+            ),
+            UnfoldPass(),
+        ]
 
     def run(self, dag):
         circuit = qiskit_to_bqskit(qiskit.converters.dag_to_circuit(dag))
