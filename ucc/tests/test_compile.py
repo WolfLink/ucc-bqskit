@@ -89,11 +89,10 @@ def test_tket_compile():
     assert isinstance(result_circuit, TketCircuit)
 
 
-@pytest.mark.parametrize("custom_pass", [None, BQSKitTransformationPass()])
-def test_custom_pass(custom_pass):
+def test_custom_pass():
     """Verify that a custom pass works with a non-qiskit input circuit"""
 
-    class HtoX(TransformationPass=None):
+    class HtoX(TransformationPass):
         """Toy transformation that converts all H gates to X gates"""
 
         def run(self, dag):
@@ -101,15 +100,13 @@ def test_custom_pass(custom_pass):
                 if isinstance(node.op, HGate):
                     dag.substitute_node(node, XGate())
             return dag
-    if custom_pass is None:
-        custom_pass = HtoX()
 
     # Example usage with a cirq circuit, stil showcasing the cross-frontend compatibility
 
     qubit = NamedQubit("q_0")
     cirq_circuit = CirqCircuit(H(qubit))
 
-    post_compiler_circuit = compile(cirq_circuit, custom_passes=[custom_pass])
+    post_compiler_circuit = compile(cirq_circuit, custom_passes=[HtoX()])
     assert_same_circuits(post_compiler_circuit, CirqCircuit(X(qubit)))
 
     def test_compile_target_device_opset():
@@ -145,6 +142,8 @@ def test_custom_pass(custom_pass):
         dag = circuit_to_dag(result_circuit)
         analysis_pass.run(dag)
         assert analysis_pass.property_set["check_map"]
+
+
 
 def test_bqskit_compile():
     from ucc.transpilers.ucc_bqskit import BQSKitTransformationPass
