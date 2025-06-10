@@ -8,7 +8,7 @@ import qiskit.converters
 class BQSKitTransformationPass(qiskit.transpiler.basepasses.TransformationPass):
     def __init__(self, bqskit_passes=None):
         super().__init__()
-        if bqskit_passes == None:
+        if bqskit_passes is None:
             self.bqskit_passes = self.default_passes()
         else:
             self.bqskit_passes = bqskit_passes
